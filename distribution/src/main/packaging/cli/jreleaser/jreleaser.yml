@@ -54,11 +54,20 @@ release:
 
 distributions:
   infinispan-cli:
-    type: FLAT_BINARY
+    # The release artifacts are ZIP archives (not bare binaries), each with a
+    # root entry named after the archive (e.g. infinispan-cli-<version>-<platform>/)
+    # that wraps the native executable and a completions/ directory. This matches
+    # the BINARY distribution layout. FLAT_BINARY must NOT be used here — it treats
+    # the artifact as a single, un-archived executable and produces a formula that
+    # fails to extract the ZIP or locate the binary and completion scripts.
+    type: BINARY
     stereotype: CLI
     executable:
       name: infinispan-cli
       windowsExtension: exe
+    # The native executables are GraalVM native images.
+    extraProperties:
+      graalVMNativeImage: true
     artifacts:
       - path: artifacts/infinispan-cli-{{projectVersion}}-linux-x86_64.zip
         platform: linux-x86_64
@@ -73,7 +82,12 @@ packagers:
   brew:
     active: ALWAYS
     multiPlatform: true
-    templateDirectory: distribution/src/main/packaging/cli/jreleaser/distributions/infinispan-cli
+    # Must point at the directory that directly contains the formula templates
+    # (formula.rb.tpl / formula-multi.rb.tpl), i.e. the `brew` subfolder.
+    # JReleaser does NOT append the packager name — pointing at the parent would
+    # silently fall back to the built-in formula template and drop the shell
+    # completion install steps.
+    templateDirectory: distribution/src/main/packaging/cli/jreleaser/distributions/infinispan-cli/brew
     repository:
       owner: infinispan
       name: homebrew-tap
@@ -84,6 +98,12 @@ packagers:
 
   scoop:
     active: ALWAYS
+    # Point at the directory containing manifest.json.tpl (the `scoop` subfolder).
+    # Without this, JReleaser looks under the default
+    # `src/jreleaser/distributions/infinispan-cli/scoop` (which does not exist in
+    # this repo layout) and silently falls back to its built-in manifest template,
+    # ignoring the custom template that sets `extract_dir` for the ZIP root entry.
+    templateDirectory: distribution/src/main/packaging/cli/jreleaser/distributions/infinispan-cli/scoop
     repository:
       owner: infinispan
       name: scoop-bucket
